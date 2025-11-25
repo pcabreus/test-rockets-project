@@ -23,8 +23,11 @@ func main() {
 	http.HandleFunc("/rockets", api.ListRockets)
 	http.HandleFunc("/rockets/", api.GetRocket)
 
+	// This can be done in a separate service/process in real implementation.
+	// For simplicity and inmemory store, we run it here.
 	consumer := consumer.NewRocketEventConsumer(eventStore, rocketStore)
 
+	// TODO: capture signals to stop the consumer gracefully
 	if err := consumer.Start(context.Background()); err != nil {
 		log.Println("Error starting consumer:", err)
 	}
