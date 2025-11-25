@@ -26,6 +26,8 @@ type Message struct {
 	LaunchSpeed int    `json:"launchSpeed"`
 	Speed       int    `json:"speed"`
 	Mission     string `json:"mission"`
+	NewMission  string `json:"newMission"`
+	Reason      string `json:"reason"`
 }
 
 func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
@@ -55,15 +57,26 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 		// We are relying on Channel + MessageNumber to detect duplicates
 		// In real implementation, consider UUIDs or database-generated IDs
 		id := fmt.Sprintf("%s-%d", req.Metadata.Channel, req.Metadata.MessageNumber)
+
+		mission := req.Message.Mission
+		if req.Message.NewMission != "" {
+			mission = req.Message.NewMission
+		}
+
+		status := model.EventStatusPending
+
 		msg := model.Event{
 			ID:          id,
-			Status:      "pending",
+			Status:      status,
+			Mission:     mission,
 			Type:        req.Message.Type,
 			LaunchSpeed: req.Message.LaunchSpeed,
 			Speed:       req.Message.Speed,
-			Mission:     req.Message.Mission,
+			Reason:      req.Message.Reason,
 			Time:        req.Metadata.MessageTime,
 			Number:      req.Metadata.MessageNumber,
+			Channel:     req.Metadata.Channel,
+			Event:       req.Metadata.MessageType,
 		}
 
 		// Process the message

@@ -18,14 +18,16 @@ type EventConsumer interface {
 // RocketEventConsumer processes rocket events in order per channel
 // It was designed for only one instance running.
 type RocketEventConsumer struct {
-	eventStore model.EventStore
-	next       map[string]int // track next expected message number per channel.
+	eventStore  model.EventStore
+	rocketStore model.RocketStore
+	next        map[string]int // track next expected message number per channel.
 }
 
-func NewRocketEventConsumer(eventStore model.EventStore) *RocketEventConsumer {
+func NewRocketEventConsumer(eventStore model.EventStore, rocketStore model.RocketStore) *RocketEventConsumer {
 	return &RocketEventConsumer{
-		eventStore: eventStore,
-		next:       make(map[string]int),
+		eventStore:  eventStore,
+		rocketStore: rocketStore,
+		next:        make(map[string]int),
 	}
 }
 
@@ -83,13 +85,66 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 // Consume processes a single event
 func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) error {
 	// Simulate processing time
-	log.Printf("Processing event ID=%s Channel=%s Number=%d Mission=%s\n",
-		event.ID, event.Channel, event.Number, event.Mission)
-	time.Sleep(100 * time.Millisecond) // simulate work
+	log.Printf("Processing event ID=%s Channel=%s Number=%d Mission=%s\n", event.ID, event.Channel, event.Number, event.Mission)
+
+	rocket, err := c.rocketStore.GetRocket(ctx, event.Channel)
+	if err != nil {
+		if err != model.ErrRocketNotFound {
+			return err
+		}
+
+		// Create new rocket if not found
+		rocket = &model.Rocket{
+			Channel: event.Channel,
+		}
+	}
+
+	switch event.Event {
+	case "RocketLaunched":
+		launchEvent := model.RocketLaunchedEvent{
+			Type:        event.Type,
+			LaunchSpeed: int64(event.LaunchSpeed),
+			Mission:     event.Mission,
+		}
+		if err := rocket.ApplyLaunchEvent(launchEvent); err != nil {
+			return err
+		}
+	case "RocketSpeedIncreased":
+		speedEvent := model.RocketSpeedIncreasedEvent{
+			By: int64(event.Speed),
+		}
+		if err := rocket.ApplySpeedIncreasedEvent(speedEvent); err != nil {
+			return err
+		}
+	case "RocketSpeedDecreased":
+		speedEvent := model.RocketSpeedDecreasedEvent{
+			By: int64(event.Speed),
+		}
+		if err := rocket.ApplySpeedDecreasedEvent(speedEvent); err != nil {
+			return err
+		}
+	case "RocketExploded":
+		explodedEvent := model.RocketExplodedEvent{}
+		if err := rocket.ApplyExplodedEvent(explodedEvent); err != nil {
+			return err
+		}
+
+	default:
+		log.Printf("Unknown event type: %s\n", event.Type)
+		return nil // Ignore unknown event types
+	}
+
+	// Save updated rocket state
+	if err := c.rocketStore.SaveRocket(ctx, rocket); err != nil {
+		return err
+	}
+
 	// Mark event as processed
 	if err := c.eventStore.Processed(ctx, event); err != nil {
 		return err
 	}
+
+	// Use a single transaction in real implementation to avoid inconsistencies between rocket and event state
 
 	log.Printf("Event ID=%s processed successfully\n", event.ID)
 	return nil

@@ -11,6 +11,7 @@ type InMemoryEventStore struct {
 	// Simple in-memory store for demonstration purposes
 	events  map[string]model.Event // map of event ID to Event
 	pending []string               // simulate an index to query for pending events
+	// TODO: add mutex for concurrent access in real implementation
 }
 
 func NewEventStore() *InMemoryEventStore {
@@ -51,7 +52,7 @@ func (store *InMemoryEventStore) Processed(ctx context.Context, event model.Even
 		return nil // Event does not exist- Question: what to do if event does not exist?
 	}
 
-	event.Status = "processed"
+	event.Status = model.EventStatusProcessed
 
 	store.events[event.ID] = event
 

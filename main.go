@@ -15,10 +15,11 @@ func main() {
 	log.Println("Starting webhook server on :8080")
 
 	eventStore := inmemory.NewEventStore()
+	rocketStore := inmemory.NewRocketStore()
 
 	http.HandleFunc("/messages", handler.RocketEventHandler(eventStore))
 
-	consumer := consumer.NewRocketEventConsumer(eventStore)
+	consumer := consumer.NewRocketEventConsumer(eventStore, rocketStore)
 
 	if err := consumer.Start(context.Background()); err != nil {
 		log.Println("Error starting consumer:", err)

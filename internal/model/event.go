@@ -2,6 +2,11 @@ package model
 
 import "context"
 
+const (
+	EventStatusPending   = "pending"
+	EventStatusProcessed = "processed"
+)
+
 type Event struct {
 	ID          string
 	Channel     string
@@ -12,6 +17,8 @@ type Event struct {
 	Mission     string
 	Time        string
 	Number      int
+	Reason      string
+	Event       string
 }
 
 type EventStore interface {
