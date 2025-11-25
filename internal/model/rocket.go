@@ -99,6 +99,9 @@ type RocketMissionChangedEvent struct {
 	NewMission string
 }
 
+type ListRocketsFilter struct {
+}
+
 func (r *Rocket) ApplyMissionChangedEvent(e RocketMissionChangedEvent) error {
 	r.Mission = e.NewMission
 	return nil
@@ -107,4 +110,5 @@ func (r *Rocket) ApplyMissionChangedEvent(e RocketMissionChangedEvent) error {
 type RocketStore interface {
 	GetRocket(ctx context.Context, channel string) (*Rocket, error)
 	SaveRocket(ctx context.Context, rocket *Rocket) error
+	ListRockets(ctx context.Context, filter ListRocketsFilter) ([]*Rocket, error)
 }

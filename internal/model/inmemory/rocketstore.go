@@ -33,3 +33,12 @@ func (store *InMemoryRocketStore) SaveRocket(ctx context.Context, rocket *model.
 	log.Println("Rocket saved for channel:", rocket.Channel)
 	return nil
 }
+
+func (store *InMemoryRocketStore) ListRockets(ctx context.Context, filter model.ListRocketsFilter) ([]*model.Rocket, error) {
+	var rockets []*model.Rocket
+	for _, rocket := range store.rockets {
+		// Apply filtering logic here if needed
+		rockets = append(rockets, rocket)
+	}
+	return rockets, nil
+}

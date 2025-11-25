@@ -17,7 +17,11 @@ func main() {
 	eventStore := inmemory.NewEventStore()
 	rocketStore := inmemory.NewRocketStore()
 
+	api := handler.NewRocketHandlers(rocketStore)
+
 	http.HandleFunc("/messages", handler.RocketEventHandler(eventStore))
+	http.HandleFunc("/rockets", api.ListRockets)
+	http.HandleFunc("/rockets/", api.GetRocket)
 
 	consumer := consumer.NewRocketEventConsumer(eventStore, rocketStore)
 
