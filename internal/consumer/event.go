@@ -68,7 +68,7 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 						if err := c.Consume(ctx, ev); err != nil {
 							log.Println("consume error:", err)
 							// leave next unchanged so it will be retried later
-							// go to a dead-letter queue after some retries
+							// TODO: go to a dead-letter queue after some retries
 							continue
 						}
 						c.next[ch]++
@@ -111,14 +111,14 @@ func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) er
 		}
 	case "RocketSpeedIncreased":
 		speedEvent := model.RocketSpeedIncreasedEvent{
-			By: int64(event.Speed),
+			By: int64(event.By),
 		}
 		if err := rocket.ApplySpeedIncreasedEvent(speedEvent); err != nil {
 			return err
 		}
 	case "RocketSpeedDecreased":
 		speedEvent := model.RocketSpeedDecreasedEvent{
-			By: int64(event.Speed),
+			By: int64(event.By),
 		}
 		if err := rocket.ApplySpeedDecreasedEvent(speedEvent); err != nil {
 			return err
@@ -128,9 +128,7 @@ func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) er
 		if err := rocket.ApplyExplodedEvent(explodedEvent); err != nil {
 			return err
 		}
-
 	default:
-		log.Printf("Unknown event type: %s\n", event.Type)
 		return nil // Ignore unknown event types
 	}
 
@@ -144,7 +142,7 @@ func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) er
 		return err
 	}
 
-	// Use a single transaction in real implementation to avoid inconsistencies between rocket and event state
+	// Use a db transaction in real implementation to avoid inconsistencies between rocket and event state
 
 	log.Printf("Event ID=%s processed successfully\n", event.ID)
 	return nil

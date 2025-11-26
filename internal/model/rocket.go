@@ -20,12 +20,12 @@ var (
 )
 
 type Rocket struct {
-	Channel string
-	Type    string
-	Speed   int64
-	Mission string
-	Status  RocketStatus
-	Reason  string
+	Channel string       `json:"channel"`
+	Type    string       `json:"type"`
+	Speed   int64        `json:"speed"`
+	Mission string       `json:"mission"`
+	Status  RocketStatus `json:"status"`
+	Reason  string       `json:"reason,omitempty"`
 }
 
 // RocketLaunchedEvent Sent out once: when a rocket is launched for the first time.

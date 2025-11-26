@@ -28,6 +28,7 @@ type Message struct {
 	Mission     string `json:"mission"`
 	NewMission  string `json:"newMission"`
 	Reason      string `json:"reason"`
+	By          int    `json:"by"`
 }
 
 func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
@@ -77,6 +78,7 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			Number:      req.Metadata.MessageNumber,
 			Channel:     req.Metadata.Channel,
 			Event:       req.Metadata.MessageType,
+			By:          req.Message.By,
 		}
 
 		// Process the message

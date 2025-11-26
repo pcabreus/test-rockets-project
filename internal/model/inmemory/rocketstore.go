@@ -22,23 +22,26 @@ func NewRocketStore() *InMemoryRocketStore {
 func (store *InMemoryRocketStore) GetRocket(ctx context.Context, channel string) (*model.Rocket, error) {
 	rocket, exists := store.rockets[channel]
 	if !exists {
+		log.Println("Rocket not found for channel:", channel)
 		return nil, model.ErrRocketNotFound
 	}
-	log.Println("Rocket not found for channel:", channel)
+
 	return rocket, nil
 }
 
 func (store *InMemoryRocketStore) SaveRocket(ctx context.Context, rocket *model.Rocket) error {
 	store.rockets[rocket.Channel] = rocket
 	log.Println("Rocket saved for channel:", rocket.Channel)
+
 	return nil
 }
 
 func (store *InMemoryRocketStore) ListRockets(ctx context.Context, filter model.ListRocketsFilter) ([]*model.Rocket, error) {
-	var rockets []*model.Rocket
+	rockets := []*model.Rocket{}
 	for _, rocket := range store.rockets {
 		// Apply filtering logic here if needed
 		rockets = append(rockets, rocket)
 	}
+
 	return rockets, nil
 }

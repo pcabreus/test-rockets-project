@@ -19,6 +19,7 @@ type Event struct {
 	Number      int
 	Reason      string
 	Event       string
+	By          int
 }
 
 type EventStore interface {

@@ -26,6 +26,7 @@ func (h *RocketStatusHandler) ListRockets(w http.ResponseWriter, r *http.Request
 	}
 
 	// respond with rockets
+	// TODO: Use a custom response struct if pagination is implemented
 	json.NewEncoder(w).Encode(rockets)
 }
 
@@ -35,6 +36,7 @@ func (h *RocketStatusHandler) GetRocket(w http.ResponseWriter, r *http.Request) 
 	rocket, err := h.rocketStore.GetRocket(r.Context(), channel)
 	if err != nil {
 		// handle error
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	// respond with rocket
