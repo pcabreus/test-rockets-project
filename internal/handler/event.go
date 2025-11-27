@@ -43,9 +43,9 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			return
 		}
 
-		// TODO: Implement some mechanism to secure this endpoint.
+		// NOTE: This endpoint is unauthenticated for the PoC. In production
+		// add authentication method and rate limiting.
 
-		// Decode the incoming JSON payload
 		var req Request
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
@@ -54,20 +54,23 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			return
 		}
 
-		// TODO: Validate the payload fields as needed
+		// Minimal validation is expected here (channel, messageNumber).
+		// TODO: More validation and timestamp parsing can be added; omitted for time.
 		if req.Metadata.Channel == "" || req.Metadata.MessageNumber < 1 {
 			http.Error(w, "Invalid payload", http.StatusBadRequest)
 			log.Println("Invalid payload:", req)
 			return
 		}
 
-		// Decision: used compound ID for simplicity and uniqueness
-		// We are relying on Channel + MessageNumber to detect duplicates
-		// In real implementation, consider UUIDs or database-generated IDs
+		// Decision: use composite ID for deduplication
+		// Rely on `channel + messageNumber` to detect duplicates. This is
+		// simple and effective given the contract that messageNumber is
+		// unique per channel.
 		id := fmt.Sprintf("%s-%d", req.Metadata.Channel, req.Metadata.MessageNumber)
 
 		mission := req.Message.Mission
 		if req.Message.NewMission != "" {
+			// Reuse mission field for mission updates
 			mission = req.Message.NewMission
 		}
 
@@ -88,7 +91,6 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			By:          req.Message.By,
 		}
 
-		// Process the message
 		err = eventStore.SaveEvent(r.Context(), msg)
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)

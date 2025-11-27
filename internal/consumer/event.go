@@ -19,22 +19,25 @@ type EventConsumer interface {
 // RocketEventConsumer processes rocket events in order per channel
 // It was designed for only one instance running.
 type RocketEventConsumer struct {
-	eventStore  model.EventStore
-	rocketStore model.RocketStore
-	next        map[string]int // track next expected message number per channel.
-	mu          sync.Mutex     // protect access to `next`
+	eventStore           model.EventStore
+	rocketStore          model.RocketStore
+	nextNumberPerChannel map[string]int // track next expected message number per channel.
+	mu                   sync.Mutex     // protect access to `next` anyways
 }
 
 func NewRocketEventConsumer(eventStore model.EventStore, rocketStore model.RocketStore) *RocketEventConsumer {
 	return &RocketEventConsumer{
-		eventStore:  eventStore,
-		rocketStore: rocketStore,
-		next:        make(map[string]int),
+		eventStore:           eventStore,
+		rocketStore:          rocketStore,
+		nextNumberPerChannel: make(map[string]int),
 	}
 }
 
 // Start the consumer
-// Open a goroutine pending events
+// Design notes:
+// The consumer keeps per-channel ordering state (`next` map) in memory. This  simplifies
+// ordering guarantees for the challenge. To run multiple workers, move ordering state to
+// a durable store or partition work by channel (e.g. Kafka partitions or DB locks).
 func (c *RocketEventConsumer) Start(ctx context.Context) error {
 	log.Println("RocketEventConsumer started")
 
@@ -61,12 +64,12 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 
 					// Protect access to the `next` map
 					c.mu.Lock()
-					if _, ok := c.next[ch]; !ok {
-						c.next[ch] = firstExpectedEventNumber
+					if _, ok := c.nextNumberPerChannel[ch]; !ok {
+						c.nextNumberPerChannel[ch] = firstExpectedEventNumber
 					}
 
 					// only process if it matches the next expected number
-					if num == c.next[ch] {
+					if num == c.nextNumberPerChannel[ch] {
 						// Hold the lock while processing to ensure ordering and avoid
 						// concurrent processors from handling the same channel number.
 						if err := c.Consume(ctx, ev); err != nil {
@@ -76,7 +79,7 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 							// TODO: go to a dead-letter queue after some retries
 							continue
 						}
-						c.next[ch]++
+						c.nextNumberPerChannel[ch]++
 					}
 					c.mu.Unlock()
 					// otherwise leave the event pending; it will be picked up again

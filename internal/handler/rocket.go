@@ -19,19 +19,22 @@ func NewRocketHandlers(rocketStore model.RocketStore) RocketStatusHandler {
 
 // ListRockets handles listing all rockets
 func (h *RocketStatusHandler) ListRockets(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	rockets, err := h.rocketStore.ListRockets(r.Context(), model.ListRocketsFilter{})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	// TODO: Use a custom response struct if pagination is implemented
 	json.NewEncoder(w).Encode(rockets)
 }
 
 // GetRocket handles retrieving a specific rocket by channel
 func (h *RocketStatusHandler) GetRocket(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	channel := r.URL.Path[len("/rockets/"):]
 	rocket, err := h.rocketStore.GetRocket(r.Context(), channel)
 	if err != nil {
@@ -45,6 +48,5 @@ func (h *RocketStatusHandler) GetRocket(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rocket)
 }
