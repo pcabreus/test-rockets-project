@@ -1,21 +1,39 @@
 # test-rockets-project
 
 ## Summary
+## Summary
 
 A lightweight PoC backend service that ingests rocket events via webhook, processes them asynchronously with per-channel ordering guarantees and idempotency, and exposes a REST API for querying rocket state. The implementation prioritizes correctness for event ordering and deduplication while using in-memory storage for simplicity and ease of local execution.
 
 > Go version: declared in `go.mod` (`go 1.25.3`).
+> Go version: declared in `go.mod` (`go 1.25.3`).
 
+## Endpoints
 ## Endpoints
 
 - `POST /messages`  — webhook for incoming events
 - `GET /rockets`    — list rockets
 - `GET /rockets/{channel}` — get rocket by channel
+- `POST /messages`  — webhook for incoming events
+- `GET /rockets`    — list rockets
+- `GET /rockets/{channel}` — get rocket by channel
 
+Example webhook payload:
 Example webhook payload:
 
 ```json
 {
+  "metadata": {
+    "channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
+    "messageNumber": 1,
+    "messageTime": "2022-02-02T19:39:05.86337+01:00",
+    "messageType": "RocketLaunched"
+  },
+  "message": {
+    "type": "Falcon-9",
+    "launchSpeed": 500,
+    "mission": "ARTEMIS"
+  }
   "metadata": {
     "channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
     "messageNumber": 1,
