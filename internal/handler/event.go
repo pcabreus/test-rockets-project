@@ -55,6 +55,11 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 		}
 
 		// TODO: Validate the payload fields as needed
+		if req.Metadata.Channel == "" || req.Metadata.MessageNumber < 1 {
+			http.Error(w, "Invalid payload", http.StatusBadRequest)
+			log.Println("Invalid payload:", req)
+			return
+		}
 
 		// Decision: used compound ID for simplicity and uniqueness
 		// We are relying on Channel + MessageNumber to detect duplicates
