@@ -1,163 +1,90 @@
 # test-rockets-project
 
-## Description
+## Summary
 
-This project implements a backend service for managing rocket data and launch scheduling. It receives rocket updates through a webhook and exposes a RESTful API to retrieve up-to-date rocket information. The service processes events asynchronously while maintaining strict ordering guarantees per event channel.
+A lightweight PoC backend service that ingests rocket events via webhook, processes them asynchronously with per-channel ordering guarantees and idempotency, and exposes a REST API for querying rocket state. The implementation prioritizes correctness for event ordering and deduplication while using in-memory storage for simplicity and ease of local execution.
 
-## Architecture Overview
+> Go version: declared in `go.mod` (`go 1.25.3`).
 
-### Rocket Event Webhook
+## Endpoints
 
-The system provides a webhook endpoint to capture all rocket updates. Events are stored in a queue and processed asynchronously to update rocket statuses.
+- `POST /messages`  — webhook for incoming events
+- `GET /rockets`    — list rockets
+- `GET /rockets/{channel}` — get rocket by channel
 
-**Endpoint:** `POST http://localhost:8080/messages`
+Example webhook payload:
 
-**Request Payload Example:**
 ```json
 {
-    "metadata": {
-        "channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
-        "messageNumber": 1,    
-        "messageTime": "2022-02-02T19:39:05.86337+01:00",                                          
-        "messageType": "RocketLaunched"                             
-    },
-    "message": {                                                    
-        "type": "Falcon-9",
-        "launchSpeed": 500,
-        "mission": "ARTEMIS",
-        "by": 3000,
-        "reason": "PRESSURE_VESSEL_FAILURE",
-        "newMission": "SHUTTLE_MIR"
-    }
+  "metadata": {
+    "channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
+    "messageNumber": 1,
+    "messageTime": "2022-02-02T19:39:05.86337+01:00",
+    "messageType": "RocketLaunched"
+  },
+  "message": {
+    "type": "Falcon-9",
+    "launchSpeed": 500,
+    "mission": "ARTEMIS"
+  }
 }
 ```
 
-**Event Status:** Events have two states: `pending` and `processed`. Each event is processed only once, and certain event types are restricted to single processing.
+## How to run (local)
 
-### Event Processing
+Prerequisites: Go installed.
 
-The event processor consumes the event queue asynchronously:
+Run with `go run` (PowerShell):
 
-- **Processing Interval:** Every 1 second
-- **Ordering Guarantee:** Events are processed sequentially per channel
-- **Processing Logic:**
-  1. Retrieve all `pending` events
-  2. Iterate through the event list
-  3. Process only if the event's message number matches the expected next number for that channel
-  4. Apply domain logic based on the event type
-  5. Persist updated rocket data
-  6. Increment the expected message number for the channel
-
-This ensures strict ordering and prevents out-of-sequence event processing.
-
-### Rockets API
-
-**Get All Rockets**
-
-```
-GET /rockets
-```
-
-Response (200 OK):
-```json
-[
-    {
-        "Channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
-        "Type": "Falcon-9",
-        "Speed": 500,
-        "Mission": "ARTEMIS",
-        "Status": "EXPLODED",
-        "Reason": ""
-    }
-]
-```
-
-**Get Rocket by Channel**
-
-```
-GET /rockets/{channelId}
-```
-
-Response (200 OK):
-```json
-{
-    "Channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
-    "Type": "Falcon-9",
-    "Speed": 500,
-    "Mission": "ARTEMIS",
-    "Status": "EXPLODED",
-    "Reason": ""
-}
-```
-
-## How to Run
-
-### Prerequisites
-- Go 1.16 or higher
-
-### Option 1: Run with Go Directly
-
-```bash
+```powershell
+cd .\test-rockets-project
 go run main.go
 ```
 
-The service will start on `http://localhost:8080`
-
-### Option 2: Build and Run Compiled Binary
+Or build and run (bash):
 
 ```bash
-# Build the executable
+cd test-rockets-project
 go build -o test-rockets-project
-
-# Run the compiled binary
 ./test-rockets-project
 ```
 
-### Configuration
+The service listens by default at `http://localhost:8080`.
 
-The service listens on:
-- **Host:** localhost
-- **Port:** 8080
+## Using the provided `rockets` test runner
 
-## Testing
+Run the platform-appropriate executable from the ZIP and point it to the webhook URL.
 
-### Manual Testing with cURL
+Example:
 
-**Send a rocket event:**
 ```bash
-curl -X POST http://localhost:8080/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "metadata": {
-      "channel": "193270a9-c9cf-404a-8f83-838e71d9ae67",
-      "messageNumber": 1,
-      "messageTime": "2022-02-02T19:39:05.86337+01:00",
-      "messageType": "RocketLaunched"
-    },
-    "message": {
-      "type": "Falcon-9",
-      "launchSpeed": 500,
-      "mission": "ARTEMIS"
-    }
-  }'
+./rockets launch "http://localhost:8080/messages" --message-delay=500ms --concurrency-level=1
 ```
 
-**Retrieve all rockets:**
-```bash
-curl http://localhost:8080/rockets
-```
+## Key implemented behaviour
 
-**Retrieve specific rocket:**
-```bash
-curl http://localhost:8080/rockets/193270a9-c9cf-404a-8f83-838e71d9ae67
-```
+- Incoming events are stored in an `EventStore` and marked `pending`.
+- A background consumer polls pending events and only processes an event when its `messageNumber` equals the expected next number for that `channel` (tracked in memory). This enforces per-channel ordering.
+- The composite key `channel-messageNumber` is used for deduplication (idempotency) — duplicates are ignored.
+- `Rocket` model methods (`ApplyLaunchEvent`, `ApplySpeedIncreasedEvent`, etc.) encapsulate domain rules (e.g. no speed changes after explosion).
 
-### Automated Testing
+## Design decisions and trade-offs (concise)
 
-Unit and integration tests are not currently provided due to project timeline constraints. 
+- Interfaces (`EventStore`, `RocketStore`): chosen to allow swapping in-memory stores for durable implementations (Postgres/Redis) with minimal changes.
+- Composite id key for idempotency (`channel-messageNumber`): simple, reliable given the message contract.
+- In-memory `next[channel]` ordering: straightforward for single-instance consumer; to scale out consider partitioning by channel (e.g. Kafka partitions) or DB-based locking.
+- Polling consumer (1s interval): simple and reliable for PoC; in production a push-based worker or broker reduces latency.
 
-TODO tests for:
-- Event webhook payload validation
-- Event ordering per channel
-- Rocket state transitions
-- API response formatting
+## Limitations / Not implemented (intentional)
+
+- In-memory persistence — events and state are lost on restart.
+- No DLQ or bounded retry policy — events that always fail remain `pending` indefinitely.
+- Webhook is unauthenticated (acceptable for local testing only).
+- `messageTime` is stored as string and not used for ordering; ordering relies on `messageNumber`.
+- No pagination or sorting params on `GET /rockets` (the store returns an unsorted slice).
+
+## How to validate behaviour quickly
+
+1. Start service (`go run .`).
+2. Run `rockets` launcher pointing to `http://localhost:8080/messages`.
+3. Inspect `GET /rockets` and `GET /rockets/{channel}` to verify final state.
