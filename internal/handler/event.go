@@ -54,6 +54,8 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			return
 		}
 
+		// TODO: Validate the payload fields as needed
+
 		// Decision: used compound ID for simplicity and uniqueness
 		// We are relying on Channel + MessageNumber to detect duplicates
 		// In real implementation, consider UUIDs or database-generated IDs
@@ -77,7 +79,7 @@ func RocketEventHandler(eventStore model.EventStore) http.HandlerFunc {
 			Time:        req.Metadata.MessageTime,
 			Number:      req.Metadata.MessageNumber,
 			Channel:     req.Metadata.Channel,
-			Event:       req.Metadata.MessageType,
+			EventType:   req.Metadata.MessageType,
 			By:          req.Message.By,
 		}
 

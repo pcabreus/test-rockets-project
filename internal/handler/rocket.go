@@ -21,11 +21,11 @@ func NewRocketHandlers(rocketStore model.RocketStore) RocketStatusHandler {
 func (h *RocketStatusHandler) ListRockets(w http.ResponseWriter, r *http.Request) {
 	rockets, err := h.rocketStore.ListRockets(r.Context(), model.ListRocketsFilter{})
 	if err != nil {
-		// handle error
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	// respond with rockets
+	w.Header().Set("Content-Type", "application/json")
 	// TODO: Use a custom response struct if pagination is implemented
 	json.NewEncoder(w).Encode(rockets)
 }
@@ -35,10 +35,16 @@ func (h *RocketStatusHandler) GetRocket(w http.ResponseWriter, r *http.Request) 
 	channel := r.URL.Path[len("/rockets/"):]
 	rocket, err := h.rocketStore.GetRocket(r.Context(), channel)
 	if err != nil {
-		// handle error
-		w.WriteHeader(http.StatusNotFound)
+		if err == model.ErrRocketNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			// TODO: return a JSON error message
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	// respond with rocket
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rocket)
 }

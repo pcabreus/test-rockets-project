@@ -36,7 +36,7 @@ type RocketLaunchedEvent struct {
 }
 
 func (r *Rocket) ApplyLaunchEvent(e RocketLaunchedEvent) error {
-	if r.Status != "" {
+	if r.Status == StatusActive || r.Status == StatusExploded {
 		return ErrAlreadyLaunched
 	}
 
@@ -73,6 +73,7 @@ func (r *Rocket) ApplySpeedDecreasedEvent(e RocketSpeedDecreasedEvent) error {
 		return ErrRocketExploded
 	}
 
+	// TODO: Prevent speed from going negative?
 	r.Speed -= e.By
 
 	return nil
@@ -100,6 +101,7 @@ type RocketMissionChangedEvent struct {
 }
 
 type ListRocketsFilter struct {
+	FilterMission string
 }
 
 func (r *Rocket) ApplyMissionChangedEvent(e RocketMissionChangedEvent) error {

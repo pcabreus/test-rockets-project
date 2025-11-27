@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/pcabreus/test-rockets-project/internal/model"
@@ -21,6 +22,7 @@ type RocketEventConsumer struct {
 	eventStore  model.EventStore
 	rocketStore model.RocketStore
 	next        map[string]int // track next expected message number per channel.
+	mu          sync.Mutex     // protect access to `next`
 }
 
 func NewRocketEventConsumer(eventStore model.EventStore, rocketStore model.RocketStore) *RocketEventConsumer {
@@ -57,15 +59,18 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 					ch := ev.Channel
 					num := ev.Number
 
-					// default first expected number is 1
-					// we are to using mutex here assuming single instance
+					// Protect access to the `next` map
+					c.mu.Lock()
 					if _, ok := c.next[ch]; !ok {
 						c.next[ch] = firstExpectedEventNumber
 					}
 
 					// only process if it matches the next expected number
 					if num == c.next[ch] {
+						// Hold the lock while processing to ensure ordering and avoid
+						// concurrent processors from handling the same channel number.
 						if err := c.Consume(ctx, ev); err != nil {
+							c.mu.Unlock()
 							log.Println("consume error:", err)
 							// leave next unchanged so it will be retried later
 							// TODO: go to a dead-letter queue after some retries
@@ -73,6 +78,7 @@ func (c *RocketEventConsumer) Start(ctx context.Context) error {
 						}
 						c.next[ch]++
 					}
+					c.mu.Unlock()
 					// otherwise leave the event pending; it will be picked up again
 				}
 			}
@@ -99,8 +105,8 @@ func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) er
 		}
 	}
 
-	switch event.Event {
-	case "RocketLaunched":
+	switch event.EventType {
+	case model.EventTypeRocketLaunched:
 		launchEvent := model.RocketLaunchedEvent{
 			Type:        event.Type,
 			LaunchSpeed: int64(event.LaunchSpeed),
@@ -109,23 +115,30 @@ func (c *RocketEventConsumer) Consume(ctx context.Context, event model.Event) er
 		if err := rocket.ApplyLaunchEvent(launchEvent); err != nil {
 			return err
 		}
-	case "RocketSpeedIncreased":
+	case model.EventTypeRocketSpeedIncreased:
 		speedEvent := model.RocketSpeedIncreasedEvent{
 			By: int64(event.By),
 		}
 		if err := rocket.ApplySpeedIncreasedEvent(speedEvent); err != nil {
 			return err
 		}
-	case "RocketSpeedDecreased":
+	case model.EventTypeRocketSpeedDecreased:
 		speedEvent := model.RocketSpeedDecreasedEvent{
 			By: int64(event.By),
 		}
 		if err := rocket.ApplySpeedDecreasedEvent(speedEvent); err != nil {
 			return err
 		}
-	case "RocketExploded":
+	case model.EventTypeRocketExploded:
 		explodedEvent := model.RocketExplodedEvent{}
 		if err := rocket.ApplyExplodedEvent(explodedEvent); err != nil {
+			return err
+		}
+	case model.EventTypeRocketMissionChanged:
+		missionEvent := model.RocketMissionChangedEvent{
+			NewMission: event.Mission,
+		}
+		if err := rocket.ApplyMissionChangedEvent(missionEvent); err != nil {
 			return err
 		}
 	default:

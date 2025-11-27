@@ -5,6 +5,12 @@ import "context"
 const (
 	EventStatusPending   = "pending"
 	EventStatusProcessed = "processed"
+
+	EventTypeRocketLaunched       = "RocketLaunched"
+	EventTypeRocketSpeedIncreased = "RocketSpeedIncreased"
+	EventTypeRocketSpeedDecreased = "RocketSpeedDecreased"
+	EventTypeRocketExploded       = "RocketExploded"
+	EventTypeRocketMissionChanged = "RocketMissionChanged"
 )
 
 type Event struct {
@@ -18,7 +24,7 @@ type Event struct {
 	Time        string
 	Number      int
 	Reason      string
-	Event       string
+	EventType   string
 	By          int
 }
 

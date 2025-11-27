@@ -13,6 +13,8 @@ import (
 func main() {
 	log.Println("Starting webhook server on :8080")
 
+	// TODO: capture signals to stop the consumer gracefully
+
 	eventStore := inmemory.NewEventStore()
 	rocketStore := inmemory.NewRocketStore()
 
@@ -22,11 +24,10 @@ func main() {
 	http.HandleFunc("/rockets", api.ListRockets)
 	http.HandleFunc("/rockets/", api.GetRocket)
 
-	// This can be done in a separate service/process in real implementation.3
-	// For simplicity and inmemory store, we run it here.
+	// This can be done in a separate service/process in real implementation
+	// For simplicity and inmemory store, we run it here
 	consumer := consumer.NewRocketEventConsumer(eventStore, rocketStore)
 
-	// TODO: capture signals to stop the consumer gracefully
 	if err := consumer.Start(context.Background()); err != nil {
 		log.Println("Error starting consumer:", err)
 	}
